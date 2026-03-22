@@ -7,10 +7,6 @@
 //************************** INCLUDES ***************************************//
 //***************************************************************************//
 
-#define Red   "\033[38;5;196m"
-#define Green "\033[38;5;40m"
-#define RST   "\033[0m"
-
 #include "cards.h"
 #include "table.h"
 #include "kb.h"
@@ -20,9 +16,14 @@
 //************************** PRIVATE FUNCTION DECLARATIONS ******************//
 //***************************************************************************//
 
+#define Red    "\033[38;5;196m"
+#define Green  "\033[38;5;40m"
+#define Yellow "\033[38;5;226m"
+#define RST    "\033[0m"
+
 static const char* getColorByAssignment(int8_t value);
 static int8_t      getAssignmentOfCard(int8_t* assignment, int8_t card, int8_t player);
-static const char* getCardStateString(int8_t* assignment, uint8_t card, uint8_t player);
+static const char* getCardStateString(const GameState* game, uint8_t card, uint8_t player);
 static void        add_card_section(Table* tbl, const GameState* game, uint8_t count,
                                    uint8_t (*getCard)(uint8_t),
                                    const char* (*getName)(uint8_t));
@@ -49,9 +50,9 @@ static const char* getColorByAssignment(int8_t value)
     return "";
 }
 
-static const char* getCardStateString(int8_t* assignment, uint8_t card, uint8_t player)
+static const char* getCardStateString(const GameState* game, uint8_t card, uint8_t player)
 {
-    int8_t value = getAssignmentOfCard(assignment, card, player);
+    int8_t value = getAssignmentOfCard(game->currAssignment, card, player);
     if(value == 1)
     {
         return Green "Y" RST;
@@ -62,6 +63,10 @@ static const char* getCardStateString(int8_t* assignment, uint8_t card, uint8_t 
     }
     if(value == 0)
     {
+        if(game->positiveAnswers[kb_getVar(card, player)] == true)
+        {
+            return Yellow "?" RST;
+        }
         return " ";
     }
     return "!";
@@ -76,9 +81,9 @@ static void add_card_section(Table* tbl, const GameState* game, uint8_t count,
         tbl_add_cell_fmt(tbl, " %s%s" RST " ",
             getColorByAssignment(getAssignmentOfCard(game->currAssignment, getCard(i), ENVELOPE_PLAYER_ID)),
             getName(i));
-        for(uint8_t j = 0; j < game->numPlayers; j++)
+        for(uint8_t j = 1; j < game->numPlayers; j++)
         {
-            tbl_add_cell_fmt(tbl, "%s", getCardStateString(game->currAssignment, getCard(i), j));
+            tbl_add_cell_fmt(tbl, "%s", getCardStateString(game, getCard(i), j));
         }
         tbl_next_row(tbl);
     }
@@ -94,13 +99,13 @@ void sheet_print(const GameState* game)
     Table* tbl = tbl_get_new();
     tbl_add_empty_cell(tbl);
     TableHAlign alignments[MAX_NUM_PLAYERS + 1u] = { TBL_H_ALIGN_LEFT };
-    for(uint8_t i = 1u; i < game->numPlayers + 1u; i++)
+    for(uint8_t i = 1u; i < game->numPlayers; i++)
     {
         alignments[i] = TBL_H_ALIGN_CENTER;
     }
-    tbl_set_default_alignments(tbl, game->numPlayers + 1, alignments, NULL);
+    tbl_set_default_alignments(tbl, game->numPlayers, alignments, NULL);
     tbl_set_vline(tbl, 1, TBL_BORDER_SINGLE);
-    for(uint8_t i = 0; i < game->numPlayers; i++)
+    for(uint8_t i = 1u; i < game->numPlayers; i++)
     {
         tbl_add_cell_fmt(tbl, " %c ", game->playerNames[i][0]);
     }

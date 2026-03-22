@@ -3,33 +3,33 @@
 A C-based interactive solver for the board game Cluedo (Clue). This project uses SAT solving and a knowledge base to help players deduce the solution through logical reasoning.
 
 ```
-┌───────────────┬────────────┐
-│               │ E  P  M  G │
-├═══════════════┼════════════┤
-│ Mustard       │ X  Y  X  X │
-│ Plum          │    X       │
-│ Green         │    X       │
-│ Peacock       │    X       │
-│ Scarlett      │    X       │
-│ White         │ X  Y  X  X │
-├───────────────┼────────────┤
-│ Candlestick   │    X       │
-│ Dagger        │ X  Y  X  X │
-│ Pipe          │    X       │
-│ Revolver      │    X       │
-│ Rope          │    X       │
-│ Wrench        │ X  Y  X  X │
-├───────────────┼────────────┤
-│ Kitchen       │ X  Y  X  X │
-│ Ballroom      │    X       │
-│ Conservatory  │    X       │
-│ Billiard Room │ X  Y  X  X │
-│ Library       │    X       │
-│ Study         │    X       │
-│ Hall          │    X       │
-│ Lounge        │    X       │
-│ Dining Room   │    X       │
-└───────────────┴────────────┘
+┌───────────────┬─────────┐
+│               │ A  B  C │
+├═══════════════┼═════════┤
+│ Mustard       │ Y  X  X │
+│ Plum          │ X  X  ? │
+│ Green         │ X       │
+│ Peacock       │ X       │
+│ Scarlett      │ X       │
+│ White         │ X       │
+├───────────────┼─────────┤
+│ Candlestick   │ Y  X  X │
+│ Dagger        │ Y  X  X │
+│ Pipe          │ X  ?  ? │
+│ Revolver      │ X       │
+│ Rope          │         │
+│ Wrench        │ Y  X  X │
+├───────────────┼─────────┤
+│ Kitchen       │ X  ?  ? │
+│ Ballroom      │ Y  X  X │
+│ Conservatory  │ X       │
+│ Billiard Room │ X       │
+│ Library       │ X       │
+│ Study         │ X       │
+│ Hall          │ X       │
+│ Lounge        │ Y  X  X │
+│ Dining Room   │ X       │
+└───────────────┴─────────┘
 ```
 
 ## Overview

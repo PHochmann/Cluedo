@@ -32,7 +32,7 @@ static char*  vreadlineasprintf(const char* promptfmt, va_list args);
 static char*  readlineasprintf(const char* promptfmt, ...);
 static int8_t vparse(int8_t (*parseFunc)(const GameState* game, const char* str), const GameState* game, const char* fmt, va_list args);
 static int8_t parse(int8_t (*parseFunc)(const GameState* game, const char* str), const GameState* game, const char* fmt, ...);
-// parseFuncs:
+// parseFuncs
 static int8_t parsePerson(const GameState* game, const char* str);
 static int8_t parsePlayer(const GameState* game, const char* str);
 static int8_t parseKeyPlayer(const GameState* game, const char* str);
@@ -45,9 +45,10 @@ static int8_t parseDiceRoll(const GameState* game, const char* str);
 // Sheet
 // Game logic
 static void printConflict(const GameState* game, const KB_ConflictInfo* conflict);
-static void freeGame(GameState* game);
 static void playGame(GameState* game);
 static void gameLoop(void);
+
+#define MIN_PLAYERS 3u
 
 //***************************************************************************//
 //************************** PRIVATE FUNCTION DEFINITIONS *******************//
@@ -251,17 +252,6 @@ static int8_t parse(int8_t (*parseFunc)(const GameState* game, const char* str),
     return result;
 }
 
-static void freeGame(GameState* game)
-{
-    // playerNames[0] is always a string literal "Envelope", so we start at index 1
-    for(uint8_t i = 1u; i < game->numPlayers; i++)
-    {
-        free(game->playerNames[i]);
-    }
-    sat_freeProblem(game->kb);
-    free(game->currAssignment);
-}
-
 static void printConflict(const GameState* game, const KB_ConflictInfo* conflict)
 {
     printf("At least one of these statements has to be true:\n");
@@ -366,8 +356,18 @@ static void playGame(GameState* game)
                 }
                 int8_t yn = parse(parseYesNo, game, "Answer of %s (y/n)?> ", getPlayerName(game, i));
                 kb_addGuessAnswerClauses(game, p, w, r, i, yn);
+
+                if(yn == 1)
+                {
+                    game->positiveAnswers[kb_getVar(kb_getPersonCard(p), i)] = true;
+                    game->positiveAnswers[kb_getVar(kb_getWeaponCard(w), i)] = true;
+                    game->positiveAnswers[kb_getVar(kb_getRoomCard(r), i)] = true;
+                }
+
                 if(updateAssignment(game) == true)
+                {
                     return;
+                }
             }
             while((keys[game->player] > 0u) && (recommender_isEnvelopeDecided(game, &p, &w, &r) == false))
             {
@@ -422,9 +422,17 @@ static void playGame(GameState* game)
                     continue;
                 }
                 int8_t yn = parse(parseYesNo, game, "Answer of %s (y/n)?> ", getPlayerName(game, i));
+                if(yn == 1)
+                {
+                    game->positiveAnswers[kb_getVar(kb_getPersonCard(p), i)] = true;
+                    game->positiveAnswers[kb_getVar(kb_getWeaponCard(w), i)] = true;
+                    game->positiveAnswers[kb_getVar(kb_getRoomCard(r), i)] = true;
+                }
                 kb_addGuessAnswerClauses(game, p, w, r, i, yn);
                 if(updateAssignment(game) == true)
+                {
                     return;
+                }
             }
 
             while(keys[currentPlayer] > 0u)
@@ -455,7 +463,9 @@ static void playGame(GameState* game)
                     int8_t r = parse(parseRoom, game, "Room accusation?> ");
                     kb_addFailedAccusationClauses(game, p, w, r);
                     if(updateAssignment(game) == true)
+                    {
                         return;
+                    }
                     isEliminated[currentPlayer] = true;
                     printf("%s is eliminated.\n", getPlayerName(game, currentPlayer));
                 }
@@ -473,9 +483,8 @@ static void gameLoop(void)
 {
     printf("== Start of game ==\n");
 
-    GameState game = {
-        .currAssignment = malloc(NUM_CARD_VARIABLES * sizeof(int8_t))
-    };
+    GameState game;
+    kb_newGame(&game);
 
     // Ask about players and their names
     game.playerNames[0] = "Envelope";
@@ -485,14 +494,14 @@ static void gameLoop(void)
         bool ok = false;
         while(ok == false)
         {
-            game.playerNames[i] = readlineasprintf("Player at position %u (or x when no other player)?> ", i);
+            game.playerNames[i] = readlineasprintf("Player at position %u%s?> ", i, (i < MIN_PLAYERS) ? "" : " (or x when no other player)");
             ok                  = true;
 
             if((game.playerNames[i][0] == 'x') || (game.playerNames[i][0] == 'X'))
             {
-                if(i < 3u)
+                if(i < MIN_PLAYERS)
                 {
-                    printf("At least 2 players are required.\n");
+                    printf("At least %u players are required.\n", MIN_PLAYERS - 1u);
                     ok = false;
                 }
                 else
@@ -519,15 +528,6 @@ static void gameLoop(void)
         }
     }
 
-    /*
-    18 cards
-    2 players: 9 9
-    3 players: 6 6 6
-    4 players: 5 5 4 4
-    5 players: 4 4 4 3 3
-    6 players: 3 3 3 3 3 3
-    */
-
     // Build initial knowledge base
     game.numPlayers = i;
 
@@ -543,7 +543,7 @@ static void gameLoop(void)
         if(totalCards != (NUM_CARDS - 3u))
         {
             printf("Not exactly %u cards assigned to players.\n", NUM_CARDS - 3u);
-            freeGame(&game);
+            kb_freeGame(&game);
             return;
         }
     }
@@ -564,7 +564,7 @@ static void gameLoop(void)
     }
 
     playGame(&game);
-    freeGame(&game);
+    kb_freeGame(&game);
 }
 
 //***************************************************************************//

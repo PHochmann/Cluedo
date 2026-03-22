@@ -21,23 +21,23 @@
 //************************** PRIVATE TYPEDEFS *******************************//
 //***************************************************************************//
 
-/** @brief Todo */
+/** @brief Initial capacity for the clause array of a SAT problem. */
 #define INITIAL_CLAUSE_CAPACITY 100u
 
-/** @brief Todo */
+/** @brief Initial capacity for the solver's propagation trail. */
 #define INITIAL_TRAIL_CAPACITY 100u
 
-/** @brief Todo */
+/** @brief Initial capacity for each literal's watchlist. */
 #define INITIAL_WATCHLIST_CAPACITY 10u
 
-/** @brief Todo */
+/** @brief Maximum number of nested checkpoint (push/pop) levels supported. */
 #define MAX_CHECKPOINT_LEVELS 8u
 
 /**
- * @brief Todo
+ * @brief A clause in the SAT problem: a disjunction of literals stored as a flexible array.
  * 
- * @var Clause::numLiterals Todo
- * @var Clause::literals Todo
+ * @var Clause::numLiterals Number of literals in the clause.
+ * @var Clause::literals Flexible array of literals forming the clause.
  */
 typedef struct
 {
@@ -46,14 +46,14 @@ typedef struct
 } Clause;
 
 /**
- * @brief Todo
+ * @brief Holds all clauses and checkpoint-level bookmarks for a SAT problem instance.
  * 
- * @var SAT_Problem::numVars Todo
- * @var SAT_Problem::numClauses Todo
- * @var SAT_Problem::capacity Todo
- * @var SAT_Problem::clauses Todo
- * @var SAT_Problem::numLevels Todo
- * @var SAT_Problem::levels Todo
+ * @var SAT_Problem::numVars Number of Boolean variables.
+ * @var SAT_Problem::numClauses Current number of clauses.
+ * @var SAT_Problem::capacity Allocated capacity of the clause array.
+ * @var SAT_Problem::clauses Heap-allocated array of pointers to clauses.
+ * @var SAT_Problem::numLevels Number of active checkpoint levels.
+ * @var SAT_Problem::levels Clause-count snapshot for each checkpoint level.
  */
 struct SAT_Problem
 {
@@ -66,26 +66,26 @@ struct SAT_Problem
 };
 
 /**
- * @brief Todo
+ * @brief A single element on the DPLL propagation trail.
  * 
- * @var TrailElement::literal Todo
- * @var TrailElement::decisionLevel Todo
- * @var TrailElement::reason Todo
+ * @var TrailElement::literal The asserted literal.
+ * @var TrailElement::decisionLevel Decision level at which the literal was asserted.
+ * @var TrailElement::reason Pointer to the clause that caused propagation, or NULL if this is a decision.
  */
 typedef struct
 {
     SAT_Literal   literal;
     uint32_t      decisionLevel;
-    const Clause* reason; // NULL if decision
+    const Clause* reason;
 } TrailElement;
 
 /**
- * @brief Todo
+ * @brief The assignment trail used during DPLL solving.
  * 
- * @var Trail::trailSize Todo
- * @var Trail::capacity Todo
- * @var Trail::head Todo
- * @var Trail::trail Todo
+ * @var Trail::trailSize Current number of elements on the trail.
+ * @var Trail::capacity Allocated capacity of the trail array.
+ * @var Trail::head Index of the next unprocessed element for unit propagation.
+ * @var Trail::trail Heap-allocated array of trail elements.
  */
 typedef struct
 {
@@ -96,11 +96,11 @@ typedef struct
 } Trail;
 
 /**
- * @brief Todo
+ * @brief A two-literal watchlist entry for a single literal: the set of clauses watched on this literal.
  * 
- * @var Watchlist::numClauses Todo
- * @var Watchlist::capacity Todo
- * @var Watchlist::clauses Todo
+ * @var Watchlist::numClauses Number of clauses currently in the watchlist.
+ * @var Watchlist::capacity Allocated capacity of the clause pointer array.
+ * @var Watchlist::clauses Heap-allocated array of pointers to watched clauses.
  */
 typedef struct
 {
@@ -110,20 +110,20 @@ typedef struct
 } Watchlist;
 
 /**
- * @brief Todo
+ * @brief Holds the internal state of the CDCL solver for a single satisfiability check.
  * 
- * @var Solver::problem Todo
- * @var Solver::currentDecisionLevel Todo
- * @var Solver::watchlists Todo
- * @var Solver::assignment Todo
- * @var Solver::trail Todo
+ * @var Solver::problem Pointer to the SAT problem being solved.
+ * @var Solver::currentDecisionLevel Current decision level.
+ * @var Solver::watchlists Array of watchlists, one per literal (indexed by literal index).
+ * @var Solver::assignment Maps each variable to its trail index, or -1 if unassigned.
+ * @var Solver::trail The propagation trail.
  */
 typedef struct
 {
     SAT_Problem* problem;
     uint32_t     currentDecisionLevel;
     Watchlist*   watchlists;
-    ssize_t*     assignment; // -1 = unassigned
+    ssize_t*     assignment;
     Trail        trail;
 } Solver;
 
@@ -132,181 +132,184 @@ typedef struct
 //***************************************************************************//
 
 /**
- * @brief Todo
+ * @brief Checks whether a literal is within the valid range for the given problem.
  * 
- * @param problem Todo
- * @param lit Todo
- * @return Todo
+ * @param problem The SAT problem.
+ * @param lit The literal to validate.
+ * @return true if the literal is valid, false otherwise.
  */
 static bool isValidLiteral(SAT_Problem* problem, SAT_Literal lit);
 
 /**
- * @brief Todo
+ * @brief Converts a literal to a unique index into a flat watchlist array.
+ *
+ * Positive literals map to [0..numVars-1]; negative literals map to [numVars..2*numVars-1].
  * 
- * @param literal Todo
- * @param numVars Todo
- * @return Todo
+ * @param literal The literal to convert.
+ * @param numVars Total number of variables.
+ * @return Index into the watchlist array.
  */
 static size_t getLiteralIndex(SAT_Literal literal, uint32_t numVars);
 
 /**
- * @brief Todo
+ * @brief Returns the 0-based variable index for a literal.
  * 
- * @param literal Todo
- * @return Todo
+ * @param literal The literal (positive or negative).
+ * @return 0-based variable index.
  */
 static uint32_t getVar(SAT_Literal literal);
 
 /**
- * @brief Todo
+ * @brief Checks whether a variable has been assigned a value in the current solver state.
  * 
- * @param solver Todo
- * @param varIndex Todo
- * @return Todo
+ * @param solver The solver.
+ * @param varIndex 0-based variable index.
+ * @return true if the variable is assigned, false if unassigned.
  */
 static bool isAssigned(const Solver* solver, uint32_t varIndex);
 
 /**
- * @brief Todo
+ * @brief Returns the trail element for the assignment of a variable.
  * 
- * @param solver Todo
- * @param varIndex Todo
- * @return Todo
+ * @param solver The solver.
+ * @param varIndex 0-based variable index (must be assigned).
+ * @return Pointer to the trail element recording the assignment.
  */
 static TrailElement* getAssignment(const Solver* solver, uint32_t varIndex);
 
 /**
- * @brief Todo
+ * @brief Checks whether a literal is falsified by the current assignment.
  * 
- * @param solver Todo
- * @param literal Todo
- * @return Todo
+ * @param solver The solver.
+ * @param literal The literal to check.
+ * @return true if the literal's variable is assigned the opposite polarity.
  */
 static bool isLiteralFalsified(const Solver* solver, SAT_Literal literal);
 
 /**
- * @brief Todo
+ * @brief Checks whether a literal is satisfied by the current assignment.
  * 
- * @param solver Todo
- * @param literal Todo
- * @return Todo
+ * @param solver The solver.
+ * @param literal The literal to check.
+ * @return true if the literal's variable is assigned the same polarity.
  */
 static bool isLiteralSatisfied(const Solver* solver, SAT_Literal literal);
 
 /**
- * @brief Todo
+ * @brief Returns the watchlist for a given literal.
  * 
- * @param solver Todo
- * @param literal Todo
- * @return Todo
+ * @param solver The solver.
+ * @param literal The literal whose watchlist to retrieve.
+ * @return Pointer to the watchlist for the given literal.
  */
 static Watchlist* getWatchlist(const Solver* solver, SAT_Literal literal);
 
 /**
- * @brief Todo
+ * @brief Removes the clause at a given index from a watchlist (order not preserved).
  * 
- * @param watchlist Todo
- * @param index Todo
+ * @param watchlist The watchlist to modify.
+ * @param index Index of the clause to remove.
  */
 static void removeFromWatchlist(Watchlist* watchlist, size_t index);
 
 /**
- * @brief Todo
+ * @brief Appends a clause pointer to the SAT problem's clause array, growing it if necessary.
  * 
- * @param problem Todo
- * @param clause Todo
+ * @param problem The SAT problem.
+ * @param clause The clause to add.
  */
 static void addClause(SAT_Problem* problem, Clause* clause);
 
 /**
- * @brief Todo
+ * @brief Appends a clause to a watchlist, growing it if necessary.
  * 
- * @param watchlist Todo
- * @param clause Todo
+ * @param watchlist The watchlist to append to.
+ * @param clause The clause to watch.
  */
 static void addToWatchlist(Watchlist* watchlist, Clause* clause);
 
 /**
- * @brief Todo
+ * @brief Pushes a literal onto the propagation trail and records its reason clause.
  * 
- * @param solver Todo
- * @param literal Todo
- * @param reason Todo
+ * @param solver The solver.
+ * @param literal The literal being asserted.
+ * @param reason The clause that forced this propagation, or NULL if it is a decision.
  */
 static void pushToTrail(Solver* solver, SAT_Literal literal, const Clause* reason);
 
 /**
- * @brief Todo
+ * @brief Updates the two-watched-literal scheme after a literal has been asserted, performing unit
+ *        propagation and detecting conflicts.
  * 
- * @param solver Todo
- * @param assertedLit Todo
- * @return Todo
+ * @param solver The solver.
+ * @param assertedLit The literal that was just asserted.
+ * @return Pointer to the conflicting clause if a conflict is detected, NULL otherwise.
  */
 static Clause* updateWatchlists(Solver* solver, SAT_Literal assertedLit);
 
 /**
- * @brief Todo
+ * @brief Selects the next unassigned variable and returns it as a positive literal (naive VSIDS-free heuristic).
  * 
- * @param solver Todo
- * @return Todo
+ * @param solver The solver.
+ * @return A positive literal for the next decision variable, or 0 if all variables are assigned.
  */
 static SAT_Literal getNextDecision(const Solver* solver);
 
 /**
- * @brief Todo
+ * @brief Performs 1-UIP conflict analysis, produces a learned clause, and returns the backjump level.
  * 
- * @param solver Todo
- * @param conflictClause Todo
- * @param outLearnedClause Todo
- * @return Todo
+ * @param solver The solver.
+ * @param conflictClause The clause that triggered the conflict.
+ * @param outLearnedClause Output: heap-allocated learned clause (caller must add it to the problem).
+ * @return The decision level to backjump to.
  */
 static uint32_t analyzeConflict(Solver* solver, const Clause* conflictClause, Clause** outLearnedClause);
 
 /**
- * @brief Todo
+ * @brief Backtracks the solver to the given decision level, undoing all trail assignments above it.
  * 
- * @param solver Todo
- * @param backtrackLevel Todo
+ * @param solver The solver.
+ * @param backtrackLevel The decision level to backtrack to.
  */
 static void backtrack(Solver* solver, uint32_t backtrackLevel);
 
 /**
- * @brief Todo
+ * @brief Performs exhaustive unit propagation and returns the first conflicting clause if found.
  * 
- * @param solver Todo
- * @return Todo
+ * @param solver The solver.
+ * @return Pointer to a conflicting clause if a conflict is found, NULL if propagation succeeded.
  */
 static Clause* unitPropagate(Solver* solver);
 
 /**
- * @brief Todo
+ * @brief Runs the CDCL satisfiability check on the given solver state.
  * 
- * @param solver Todo
- * @param outConflict Todo
- * @return Todo
+ * @param solver The solver.
+ * @param outConflict If non-NULL and unsatisfiable, receives a pointer to the final conflict clause.
+ * @return true if the problem is satisfiable, false otherwise.
  */
 static bool isSatisfiable(Solver* solver, const Clause** outConflict);
 
 /**
- * @brief Todo
+ * @brief Initializes a Solver from a SAT_Problem, building watchlists and setting up internal state.
  * 
- * @param problem Todo
- * @param outSolver Todo
+ * @param problem The SAT problem to solve.
+ * @param outSolver Output: initialized solver ready for use.
  */
 static void getSolver(SAT_Problem* problem, Solver* outSolver);
 
 /**
- * @brief Todo
+ * @brief Frees all heap memory owned by a solver (watchlists and trail, but not the problem).
  * 
- * @param solver Todo
+ * @param solver The solver to free.
  */
 static void freeSolver(Solver* solver);
 
 /**
- * @brief Todo
+ * @brief Extracts a heap-allocated Boolean solution array from a complete solver assignment.
  * 
- * @param solver Todo
- * @return Todo
+ * @param solver The solver with a complete assignment.
+ * @return Heap-allocated array of size numVars; solution[i] is true iff variable i+1 is assigned true.
  */
 static bool* getSolutionFromCompleteAssignment(const Solver* solver);
 

@@ -20,24 +20,25 @@
 //***************************************************************************//
 
 /**
- * @brief Todo
+ * @brief Returns the auxiliary SAT literal for the sequential counter encoding at position (i, j).
  * 
- * @param baseVar Todo
- * @param i Todo
- * @param j Todo
- * @param k Todo
- * @return Todo
+ * @param baseVar Base variable index for auxiliary counter variables.
+ * @param i Card index within the counter.
+ * @param j Counter position (0-based).
+ * @param k Maximum count (number of cards for the player).
+ * @return SAT literal for the auxiliary counter variable at (i, j).
  */
 static SAT_Literal getCounterAuxLit(uint32_t baseVar, uint8_t i, uint8_t j, uint8_t k);
 
 /**
- * @brief Todo
+ * @brief Encodes an at-most-k (or at-least-k) constraint on the number of cards belonging to a player
+ *        using a sequential counter encoding.
  * 
- * @param game Todo
- * @param playerIndex Todo
- * @param cardsOfPlayer Todo
- * @param baseVar Todo
- * @param sign Todo
+ * @param game Current game state.
+ * @param playerIndex Index of the player to constrain.
+ * @param cardsOfPlayer The k value (exact card count for the player).
+ * @param baseVar Base variable index for auxiliary counter variables.
+ * @param sign 1 for at-most-k on positive literals; -1 encodes at-most-k on negated literals (i.e. at-least-k).
  */
 static void encodeAtMostKCards(const GameState* game, uint8_t playerIndex, uint8_t cardsOfPlayer, uint32_t baseVar, int8_t sign);
 
@@ -286,4 +287,24 @@ bool kb_updateAssignment(GameState* game, KB_ConflictInfo* outConflict)
     }
     free(solution);
     return true;
+}
+
+void kb_newGame(GameState* game)
+{
+    *game = (GameState){
+        .currAssignment = malloc(NUM_CARD_VARIABLES * sizeof(int8_t)),
+        .positiveAnswers = calloc(NUM_CARD_VARIABLES, sizeof(bool)),
+    };
+}
+
+void kb_freeGame(GameState* game)
+{
+    // playerNames[0] is always a string literal "Envelope", so we start at index 1
+    for(uint8_t i = 1u; i < game->numPlayers; i++)
+    {
+        free(game->playerNames[i]);
+    }
+    sat_freeProblem(game->kb);
+    free(game->positiveAnswers);
+    free(game->currAssignment);
 }
