@@ -1,0 +1,17 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build test executable
+        run: make test
+
+      - name: Run tests
+        run: cat ./tests/problems/*.cnf | ./bin/test/sat_test
